@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+
+body{
+    margin:0;
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+    color:white;
+}
+
+#app{
+    backdrop-filter:blur(20px);
+    background:rgba(255,255,255,0.08);
+    border-radius:20px;
+    padding:25px;
+    width:380px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4);
+    text-align:center;
+}
+
+#location{
+    font-size:20px;
+    font-weight:600;
+}
+
+#date{
+    opacity:0.7;
+    margin-bottom:15px;
+}
+
+#temp{
+    font-size:42px;
+    font-weight:700;
+}
+
+#feels{
+    opacity:0.8;
+    margin-bottom:10px;
+}
+
+#clothing{
+    color:#4ade80;
+    margin-bottom:20px;
+    font-weight:600;
+}
+
+/* avatar */
+#avatar{
+    margin:15px auto;
+    width:120px;
+}
+
+/* hourly scroll */
+#hourly{
+    display:flex;
+    gap:10px;
+    overflow-x:auto;
+    padding-top:10px;
+}
+
+.hour{
+    background:rgba(255,255,255,0.08);
+    border-radius:12px;
+    padding:10px;
+    min-width:70px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+<div id="location">Loading...</div>
+<div id="date"></div>
+
+<div id="temp"></div>
+<div id="feels"></div>
+
+<div id="clothing"></div>
+
+<!-- PERSON AVATAR -->
+<svg id="avatar" viewBox="0 0 100 200">
+
+<!-- head -->
+<circle cx="50" cy="30" r="15" fill="#ffd4a3"/>
+
+<!-- body -->
+<rect x="35" y="45" width="30" height="60" fill="#444"/>
+
+<!-- legs -->
+<rect id="pants" x="35" y="105" width="12" height="60" fill="#2563eb"/>
+<rect id="pants2" x="53" y="105" width="12" height="60" fill="#2563eb"/>
+
+<!-- shorts -->
+<rect id="shorts" x="35" y="105" width="30" height="25" fill="#2563eb" visibility="hidden"/>
+
+<!-- hoodie -->
+<rect id="hoodie" x="30" y="45" width="40" height="60" fill="#22c55e" visibility="hidden"/>
+
+<!-- coat -->
+<rect id="coat" x="28" y="45" width="44" height="80" fill="#111" visibility="hidden"/>
+
+<!-- tshirt -->
+<rect id="tshirt" x="35" y="45" width="30" height="40" fill="#ef4444" visibility="hidden"/>
+
+</svg>
+
+<div id="hourly"></div>
+
+</div>
+
+<script>
+
+// clothing logic
+function setClothing(temp){
+
+let text="";
+
+document.getElementById("shorts").setAttribute("visibility","hidden");
+document.getElementById("pants").setAttribute("visibility","visible");
+document.getElementById("pants2").setAttribute("visibility","visible");
+document.getElementById("hoodie").setAttribute("visibility","hidden");
+document.getElementById("coat").setAttribute("visibility","hidden");
+document.getElementById("tshirt").setAttribute("visibility","hidden");
+
+if(temp>=80){
+
+text="Wear Shorts and T-Shirt";
+
+document.getElementById("shorts").setAttribute("visibility","visible");
+document.getElementById("pants").setAttribute("visibility","hidden");
+document.getElementById("pants2").setAttribute("visibility","hidden");
+document.getElementById("tshirt").setAttribute("visibility","visible");
+
+}
+else if(temp>=65){
+
+text="T-Shirt and Pants";
+
+document.getElementById("tshirt").setAttribute("visibility","visible");
+
+}
+else if(temp>=45){
+
+text="Hoodie and Pants";
+
+document.getElementById("hoodie").setAttribute("visibility","visible");
+
+}
+else{
+
+text="Coat and Pants";
+
+document.getElementById("coat").setAttribute("visibility","visible");
+
+}
+
+document.getElementById("clothing").innerHTML=text;
+
+}
+
+// main weather
+navigator.geolocation.getCurrentPosition(async pos=>{
+
+const lat=pos.coords.latitude;
+const lon=pos.coords.longitude;
+
+// date
+document.getElementById("date").innerHTML=
+new Date().toLocaleDateString(undefined,{
+weekday:'long',
+month:'long',
+day:'numeric'
+});
+
+// location
+const loc=await fetch(
+`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}`
+).then(r=>r.json());
+
+document.getElementById("location").innerHTML=
+loc.city+", "+loc.principalSubdivision;
+
+// NOAA weather
+const point=await fetch(
+`https://api.weather.gov/points/${lat},${lon}`
+).then(r=>r.json());
+
+const forecast=await fetch(
+point.properties.forecastHourly
+).then(r=>r.json());
+
+const periods=forecast.properties.periods;
+
+const temp=periods[0].temperature;
+const wind=parseInt(periods[0].windSpeed);
+
+const feels=Math.round(
+35.74+0.6215*temp-35.75*Math.pow(wind,0.16)
++0.4275*temp*Math.pow(wind,0.16)
+);
+
+document.getElementById("temp").innerHTML=temp+"°F";
+document.getElementById("feels").innerHTML="Feels like "+feels+"°F";
+
+setClothing(feels);
+
+// hourly
+let html="";
+for(let i=0;i<24;i++){
+
+let d=new Date(periods[i].startTime);
+let h=d.getHours()%12||12;
+let ampm=d.getHours()<12?"AM":"PM";
+
+html+=`
+<div class="hour">
+${h}${ampm}<br>
+${periods[i].temperature}°
+</div>
+`;
+}
+
+document.getElementById("hourly").innerHTML=html;
+
+});
+
+</script>
+
+</body>
+</html>
